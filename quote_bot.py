@@ -21,7 +21,6 @@ import os
 import time
 import re
 
-#TODO rate limiting or queing of some flavor
 class GoodReads(object):
     def __init__(self):
         """try to find dev_key in environmental variables
@@ -41,22 +40,25 @@ class GoodReads(object):
 
 
 
-    def author_search(self, author_name):
+    def find_author(self, author_name):
         """Find the GoodReads author id for string author_name
         returns dict with GoodReads authorid number and author name
         """
         payload = {"key": self.dev_key}
         time.sleep(1)
         r = requests.get("https://www.goodreads.com/api/author_url/" + urllib.parse.quote(author_name), params = payload)
-        tree = etree.fromstring(r.content)
-        id_ = tree[1].attrib['id']
-        name_ = tree[1][0].text #Correct author name, since users might mangle it and search for, say, Haruki instead of Haruki Murakami.
-        return {"name": name_, "id": id_}
+        try:
+            tree = etree.fromstring(r.content)
+            id_ = tree[1].attrib['id']
+            name_ = tree[1][0].text #Correct author name, since users might mangle it and search for, say, Haruki instead of Haruki Murakami.
+            return {"name": name_, "id": id_}
+        except IndexError:
+            raise ValueError("Author not found")
 
     def get_page(self, author, n):
         page = n
         quotePage = "https://www.goodreads.com/author/quotes/" + urllib.parse.quote(author["id"])
-        time.sleep(2)
+        time.sleep(1.1)
         return requests.get(quotePage, params={"page": n})
 
     def get_quotes(self, req, query=""):
@@ -74,6 +76,7 @@ class GoodReads(object):
         #Do you pity me?  Are you going to look down on me?
 #These things gnaw at me
 #oh well
+
         quotes = [quote.get_text(strip=True) for quote in quote_els if query in quote.get_text()]
         return quotes
 
@@ -85,10 +88,19 @@ class GoodReads(object):
         for n in range(1, 10):
             r = self.get_page(author, n)
             quotes = self.get_quotes(r, query)
-            print(len(quotes))
+            #print(len(quotes))
             if len(quotes) > 0:
                 return quotes
         return ["Quote not found, :-("]
+
+    #TODO add mechanism to skip quotes that aren't it
+    def search(self, quote, author):
+        try:
+            author = self.find_author(author)
+        except ValueError:
+            return {"success": False, "msg": "Author not found"}
+        quotes = self.load_quote(quote, author)
+        return {"author": author, "quotes": quotes, "success": True}
 
 
 
@@ -97,14 +109,21 @@ if __name__ == "__main__":
     import sys
     if len(sys.argv) > 1:
         gr = GoodReads()
-        author = gr.author_search(sys.argv[1])
+        #Slices actually return [] if a slice calls invalid index!  That's perfect for this, and I didn't know they worked like that.
+        print(gr.search(sys.argv[1], "".join(sys.argv[2:])))
+        #Guido thought of everything :)
+
+
+        """
+        author = gr.find_author(sys.argv[1])
         print(author)
         try:
             quotes = gr.load_quote(sys.argv[2], author)
         except IndexError:
             quotes = gr.load_quote("", author)
         [print(quote) for quote in quotes]
-        print(len(quotes))
+        #print(len(quotes))
+        """
 
     else:
         print("usage: QuoteBot author query")
