@@ -21,6 +21,8 @@ import os
 import time
 import re
 
+PAGEMAX = 10
+
 class GoodReads(object):
     def __init__(self):
         """try to find dev_key in environmental variables
@@ -77,7 +79,9 @@ class GoodReads(object):
 #These things gnaw at me
 #oh well
 
-        quotes = [quote.get_text(strip=True) for quote in quote_els if query in quote.get_text()]
+#nevermind, I went with regexes anyway, even though they make me moody
+        #quotes = [quote.get_text(strip=True) for quote in quote_els if query in quote.get_text()]
+        quotes = [quote.get_text(strip=True) for quote in quote_els if re.search(query, quote.get_text())]
         return quotes
 
     def load_quote(self, query, author):
@@ -85,13 +89,14 @@ class GoodReads(object):
         Goodreads returns quotes sorted by popularity, so presumably several pages of depth is plenty for pop-conscious quotes
         returns string of quote
         """
-        for n in range(1, 10):
+        for n in range(1, PAGEMAX):
             r = self.get_page(author, n)
             quotes = self.get_quotes(r, query)
             #print(len(quotes))
             if len(quotes) > 0:
                 return quotes
-        return ["Quote not found, :-("]
+        #return empty quotes object
+        return []
 
     #TODO add mechanism to skip quotes that aren't it
     def search(self, quote, author):
@@ -100,7 +105,9 @@ class GoodReads(object):
         except ValueError:
             return {"success": False, "msg": "Author not found"}
         quotes = self.load_quote(quote, author)
-        return {"author": author, "quotes": quotes, "success": True}
+        #This function was successful if one or more quote was found
+        success = len(quotes) > 0
+        return {"author": author, "quotes": quotes, "success": success}
 
 
 
