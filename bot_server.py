@@ -54,9 +54,10 @@ def search_quote():
 def taskstatus(task_id):
     task = queue_bot.request_objs[task_id]
     if task == "PENDING":
-        response = {"state": task}
+        response = {"state": "PENDING"}
     elif task is not None:
         response = task
+        response["state"] = "FINISHED"
     else:
-        response = {"success": False, "msg": "Task not found"}
+        response = {"state": "FINISHED", "success": False, "msg": "Task not found"}
     return jsonify(response)
